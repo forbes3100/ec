@@ -36,7 +36,6 @@ static const char* Intro =
 const signed char CH_CR =       0x0d;   // ASCII carriage return char
 const signed char CH_LF =       0x0a;   // ASCII line feed char
 const signed char CH_BELL =     0x07;   // ASCII bell char
-const signed char CH_BS =       0x08;   // ASCII backspace char
 const signed char CH_ESC =      0x1b;   // ASCII escape char
 const signed char CH_RUB =      0x7f;   // ASCII rubout char
 
@@ -273,7 +272,7 @@ void updateWindows()
                 *p = '-';
             *p = 0;
             char s[MAX_LINE];
-            sprintf(s, " buffer=%d ", buffB);
+            snprintf(s, MAX_LINE, " buffer=%d ", buffB);
             memcpy(divideLine + screenWd/2 - 5, s, strlen(s));
             update(divideLine, 0, 0, screenHt/2, screenHt/2);
             attrib = 0;
@@ -328,12 +327,13 @@ void updateWindows()
         case lEnd_PC:   lEndMsg = 'P'; break;
     }
 
-    sprintf(statusLine, "----- %c %4s: %-33s",
+    snprintf(statusLine, SCRMAXWD, "----- %c %4s: %-33s",
         command, fileStat, curFileName);
     char* p = statusLine + strlen(statusLine);
     while (p < statusLine + screenWd - 30)
         *p++ = ' ';
-    sprintf(p, "buffer=%d [    ,   ] %s %c -----", buffA, insMsg, lEndMsg);
+    snprintf(p, SCRMAXWD, "buffer=%d [    ,   ] %s %c -----", buffA, insMsg,
+             lEndMsg);
 
     if (bcursPos != lastCursPos)
     {
@@ -402,15 +402,17 @@ void saveIfOpen()
             attrib = AT_REVERSE + AT_BOLD;
             char cmdLine[MAX_LINE];
             if (buffer[b].open)
-                sprintf(cmdLine,"\n Save changes to '%s' (Yes/No/Cancel)?\n",
-                 buffer[b].fpath);
+                snprintf(cmdLine, MAX_LINE,
+                    "\n Save changes to '%s' (Yes/No/Cancel)?\n",
+                    buffer[b].fpath);
             else
             {
                 centerCursor();
                 key = NO_KEY;
                 updateWindows();
                 attrib = AT_REVERSE + AT_BOLD;
-                sprintf(cmdLine,"\n Save buffer %d (Yes/No/Cancel)?\n", b);
+                snprintf(cmdLine, MAX_LINE,
+                    "\n Save buffer %d (Yes/No/Cancel)?\n", b);
             }
             update(cmdLine, 0, 0, screenHt-2, screenHt-1);
             attrib = 0;
@@ -1237,7 +1239,7 @@ void getCommand(const char* msg, bool isFile)
     char* p;
     for (p = cmdLine; p < cmdLine + screenWd - 1; p++)
         *p = '-';
-    sprintf(p, "\n%s  (<esc> to cancel)\n", msg);
+    snprintf(p, SCRMAXWD, "\n%s  (<esc> to cancel)\n", msg);
     attrib = AT_REVERSE + AT_BOLD;
     update(cmdLine, 0, 8, screenHt-3, screenHt-1);
     attrib = 0;
@@ -1514,7 +1516,7 @@ int main(int argc, const char** argv)
         {
             initCmdBuf();
             char sTmp[SCRMAXWD + 10];
-            sprintf(sTmp, "QG/%d/", startLine);
+            snprintf(sTmp, SCRMAXWD + 10, "QG/%d/", startLine);
             insert(bstart, sTmp, strlen(sTmp));
             selectBuffer(0);
             execBuffer(longCmdBuff);
@@ -1571,7 +1573,7 @@ int main(int argc, const char** argv)
                             case 'F':
                                 initCmdBuf();
                                 getCommand("find:");
-                                sprintf(lastFind, "\4%s\4", bstart);
+                                snprintf(lastFind, MAX_LINE, "\4%s\4", bstart);
                                 getCommand(currOptions());
                                 insert(bstart, "QF", (long)2);
                                 insert(beot, lastFind, (long)strlen(lastFind));
@@ -1580,7 +1582,7 @@ int main(int argc, const char** argv)
                             case 'A':
                                 initCmdBuf();
                                 getCommand("find:");
-                                sprintf(lastFind, "\4%s\4", bstart);
+                                snprintf(lastFind, MAX_LINE, "\4%s\4", bstart);
                                 getCommand("replace with:");
                                 strcat(lastFind, bstart);
                                 getCommand(currOptions());
