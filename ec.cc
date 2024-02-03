@@ -29,7 +29,7 @@
 #define NO_UPDATE_DURING_INPUT
 
 static const char* Intro =
-    "Macro Editor  6.9  " __DATE__ "  Type ctrl-K then H for help\n";
+    "Macro Editor  6.10  " __DATE__ "  Type ctrl-K then H for help\n";
 
 // character codes
 
@@ -164,7 +164,7 @@ o EOL |clipbd |       |clipbd |clipbd|\n",
 " ^QT\"n\"   set TAB spacing for this file (n= 4, 8, etc.)\n",
 " ^Q<space>  enter a short macro, repeatable with ^L\n",
 " ^KD,  ^KX  save buffer 0 and exit editor,   ^QQ  exit the editor\n",
-" ^KE  save buf 0, exit, and make,    ^KP  like ^KE, but OS-9 pmake\n",
+" ^KE  save buf 0, exit, and make\n",
 " ^KA  toggle black-on-white\n",
 "\n",
 "Macros may be any sequence of the above commands, entered as letters\n",
@@ -854,9 +854,6 @@ doexit:
                     } while (key != CH_ESC && more);
                     break;
                 }
-                case 'P':           // exit editor and run PMAKE
-                    doMake = TRUE;
-                    goto doexit;
                 case 'O':           // open file
                 case 'R':           // read in file
                 case 'W':           // write file

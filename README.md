@@ -83,8 +83,8 @@ File I/O:
 Other:
  ^QT"n"   set TAB spacing for this file (n= 4, 8, etc.)
  ^Q<space>  enter a short macro, repeatable with ^L
- KD,   ^KX  save buffer 0 and exit editor,   ^QQ  exit the editor
- ^KE  save buf 0, exit, and make,    ^KP  like ^KE, but OS-9 pmake
+ ^KD,   ^KX  save buffer 0 and exit editor,   ^QQ  exit the editor
+ ^KE  save buf 0, exit, and make
  ^KA  toggle black-on-white
 
 Macros may be any sequence of the above commands, entered as letters
