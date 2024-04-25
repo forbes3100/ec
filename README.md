@@ -5,7 +5,7 @@ A portable terminal-based text editor using the WordStar diamond, with macro cap
 
 If you're not familiar with the WordStar diamond (the E S D X keys), the first step is to insure
 that your keyboard has the Control key in the right place, just to the left of the 'A' key. On
-modern keyboards means remapping the Caps Lock key to it. You'll then find that the WordStar
+modern keyboards that means remapping the Caps Lock key to it. You'll then find that the WordStar
 diamond keys fall naturally under your left index finger while your pinkie is on the Control key,
 and that this is very close to home typing position.
 
