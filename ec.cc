@@ -330,9 +330,11 @@ void updateWindows()
     snprintf(statusLine, SCRMAXWD, "----- %c %4s: %-33s",
         command, fileStat, curFileName);
     char* p = statusLine + strlen(statusLine);
-    while (p < statusLine + screenWd - 30)
+    while (p < statusLine + screenWd - 30 && p < statusLine + SCRMAXWD - 1)
         *p++ = ' ';
-    snprintf(p, SCRMAXWD, "buffer=%d [    ,   ] %s %c -----", buffA, insMsg,
+    *p = '\0';
+    size_t remain = SCRMAXWD - (p - statusLine);
+    snprintf(p, remain, "buffer=%d [    ,   ] %s %c -----", buffA, insMsg,
              lEndMsg);
 
     if (bcursPos != lastCursPos)
