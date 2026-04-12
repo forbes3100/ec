@@ -19,6 +19,7 @@
 #ifndef ec_h_
 #define ec_h_
 
+#include <stdio.h>
 #include <string.h>
 
 // standard types and constants
@@ -47,9 +48,23 @@ class TmpName
 
 public:
     TmpName&    operator = (char* name)
-        { strncpy(this->name, name, max_nameLen); return* this; }
+        {
+            if (name)
+                snprintf(this->name, max_nameLen, "%s", name);
+            else
+                this->name[0] = '\0';
+            return *this;
+        }
     TmpName&    operator += (char* s)
-        { strncat(this->name, s, max_nameLen); return* this; }
+        {
+            if (s)
+            {
+                size_t n = strlen(this->name);
+                if (n < max_nameLen - 1)
+                    strncat(this->name, s, max_nameLen - n - 1);
+            }
+            return *this;
+        }
     TmpName();
     TmpName(char* fmt, ...);
     operator char* ()   { return this->name; }

@@ -22,6 +22,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <stdarg.h>
+#include <glob.h>
 
 #include "termp.h"
 #include "ec.h"
@@ -1259,65 +1260,51 @@ void getCommand(const char* msg, bool isFile)
             {
                 // tab-- try to complete a filename
                 *bcursPos = 0;
-                char lsCmd[MAX_LINE];
-                snprintf(lsCmd, MAX_LINE, "ls -dF %s* 2>&1", bstart);
-                fflush(stdout);
-                FILE* ls = popen(lsCmd, "r");
-                if (!ls)
+                glob_t matches;
+                memset(&matches, 0, sizeof(matches));
+                char pattern[MAX_LINE + 4];
+                snprintf(pattern, sizeof(pattern), "%s*", bstart);
+                int g = glob(pattern, GLOB_MARK, 0, &matches);
+                if (g == GLOB_NOSPACE)
                     putchar(CH_BELL);
-                else
+                else if (g == 0 && matches.gl_pathc > 0)
                 {
-                    char* buf = new char[32000];
-                    int n = fread(buf, 1, 32000, ls);
-                    if (!pclose(ls) && n > 0)
+                    int baseLen = bcursPos - bstart;
+                    const char* first = matches.gl_pathv[0];
+                    int firstLen = strlen(first);
+                    if (firstLen >= baseLen &&
+                        strncmp(first, bstart, (size_t)baseLen) == 0)
                     {
-                        int baseLen = bcursPos - bstart;
-                        char* p = buf;
-                        char* addB1 = p + baseLen;
-                        char* addE1 = 0;
-                        char* addB2 = 0;
-                        int col = 0;
-                        int line = 0;
-                        char* base = bstart;
-                        for ( ; *p; p++)
+                        int commonLen = firstLen;
+                        for (size_t i = 1; i < matches.gl_pathc; i++)
                         {
-                            if (col == baseLen)
-                                addB2 = p;
-                            if (!*p || (col < baseLen && *p != *base))
+                            const char* s = matches.gl_pathv[i];
+                            int slen = strlen(s);
+                            if (slen < baseLen ||
+                                strncmp(s, bstart, (size_t)baseLen) != 0)
+                            {
+                                commonLen = baseLen;
                                 break;
-                            if (*p == '\n')
-                            {
-                                if (col <= baseLen)
-                                    break;
-                                char* p1 = addB1;
-                                char* p2 = addB2;
-                                while (*p1 == *p2 && *p1 != '\n')
-                                {
-                                    p1++;
-                                    p2++;
-                                }
-                                if (!addE1 || p1 < addE1)
-                                    addE1 = p1;
-                                col = 0;
-                                base = bstart;
-                                line++;
                             }
-                            else
-                            {
-                                col++;
-                                base++;
-                            }
+                            int j = baseLen;
+                            while (j < commonLen && j < slen &&
+                                s[j] == first[j])
+                                j++;
+                            commonLen = j;
                         }
-                        if (line != 1)
+
+                        if (matches.gl_pathc != 1)
                             putchar(CH_BELL);
-                        if (line > 0)
+
+                        if (commonLen > baseLen)
                         {
-                            int addLen = addE1 - addB1;
-                            insert(bcursPos, addB1, addLen);
+                            int addLen = commonLen - baseLen;
+                            insert(bcursPos, first + baseLen, addLen);
                             bcursPos += addLen;
                         }
                     }
                 }
+                globfree(&matches);
             }
         }
         else if (key < 0x20 || key == CH_RUB)

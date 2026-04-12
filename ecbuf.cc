@@ -670,8 +670,7 @@ void writeToFile(const char* fName, const char* fPath, char* start, char* end)
         fclose(fp);
         stat(fPath, &fileStats);
         haveStats = TRUE;
-        strcpy(backupName, ".~");
-        strncat(backupName, fPath, MAX_LINE+9);
+        snprintf(backupName, sizeof(backupName), ".~%s", fPath);
         rename(fPath, backupName);
     }
 

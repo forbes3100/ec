@@ -54,6 +54,18 @@ char            myAB[20];
 
 int             screenHt, screenWd;     // screen dimensions
 
+#ifndef TERMCAPS
+static void copyCap(char* dest, size_t destLen, const char* src)
+{
+    if (!src)
+    {
+        dest[0] = '\0';
+        return;
+    }
+    snprintf(dest, destLen, "%s", src);
+}
+#endif
+
 // ----------------------------------------------------------------------------
 // Get (new) screen dimensions to screenHt, screenWd.
 
@@ -122,15 +134,15 @@ void iTermCaps(termOptStr* termSave)
     setupterm((char*)0, 1, (int*)0);    // terminfo setup
     screenHt = lines;
     screenWd = columns - 1;
-    strcpy(myClrScr, clear_screen);     // just copy strings
-    strcpy(myClrEol, clr_eol);
-    strcpy(myCurAdr, cursor_address);
-    strcpy(myBold, enter_bold_mode);
-    strcpy(myRev, enter_reverse_mode);
-    strcpy(myUnder, enter_underline_mode);
-    strcpy(myNorm, exix_attribute_mode);
-    strcpy(myAF, set_a_foreground);
-    strcpy(myAB, set_a_background);
+    copyCap(myClrScr, sizeof(myClrScr), clear_screen); // just copy strings
+    copyCap(myClrEol, sizeof(myClrEol), clr_eol);
+    copyCap(myCurAdr, sizeof(myCurAdr), cursor_address);
+    copyCap(myBold, sizeof(myBold), enter_bold_mode);
+    copyCap(myRev, sizeof(myRev), enter_reverse_mode);
+    copyCap(myUnder, sizeof(myUnder), enter_underline_mode);
+    copyCap(myNorm, sizeof(myNorm), exix_attribute_mode);
+    copyCap(myAF, sizeof(myAF), set_a_foreground);
+    copyCap(myAB, sizeof(myAB), set_a_background);
     reset_shell_mode();                 // and restore term
 #endif
 
