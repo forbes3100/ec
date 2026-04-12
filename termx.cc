@@ -54,6 +54,7 @@ char            myAB[20];
 
 int             screenHt, screenWd;     // screen dimensions
 
+#ifndef TERMCAPS
 static void copyCap(char* dest, size_t destLen, const char* src)
 {
     if (!src)
@@ -63,6 +64,7 @@ static void copyCap(char* dest, size_t destLen, const char* src)
     }
     snprintf(dest, destLen, "%s", src);
 }
+#endif
 
 // ----------------------------------------------------------------------------
 // Get (new) screen dimensions to screenHt, screenWd.
