@@ -29,7 +29,7 @@
 #define NO_UPDATE_DURING_INPUT
 
 static const char* Intro =
-    "Macro Editor  6.10  " __DATE__ "  Type ctrl-K then H for help\n";
+    "Macro Editor  6.11  " __DATE__ "  Type ctrl-K then H for help\n";
 
 // character codes
 
