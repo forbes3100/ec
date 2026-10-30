@@ -29,6 +29,8 @@
                     // (use "xterm +cm" or "xterm*colorMode: true")
 #undef TERM_COLORS
 
+#define COMMENT_COLOR MAGENTA
+
 int  row, col;      // current screen row and column position
 short* ip;          // pointer to current char in screenBuf
 bool  cursorGood;   // TRUE if ip matches real screen cursor position
@@ -42,7 +44,7 @@ void clearScreenC()
     normalMode();
 #ifdef COLORS
     if (ansiColors)
-        printf("\e[30;47m");    // set colors to black on white
+        printf("\e[3%d;4%dm", WHITE, BLACK);    // set colors to black on white
 #endif
     clearScreen();
     for (int i = 0; i < SCRMAXHT*SCRMAXWD; )
@@ -57,7 +59,7 @@ void clearLineC()
     normalMode();
 #ifdef COLORS
     if (ansiColors)
-        printf("\e[30;47m");    // set colors to black on white
+        printf("\e[3%d;4%dm", WHITE, BLACK);    // set colors to black on white
 #endif
     clearLine();
 }
@@ -91,7 +93,7 @@ void putAttrChar(char c, int cAttr)
 #endif
 #ifdef COLORS
             if (ansiColors)
-                printf("\e[30;47m");    // set colors to black on white
+                printf("\e[3%d;4%dm", WHITE, BLACK);    // set colors to black on white
 #endif
         }
         else
@@ -101,10 +103,10 @@ void putAttrChar(char c, int cAttr)
         {
         if (!(needAttrOn & AT_REVERSE))
 #ifdef TERM_COLORS
-            setForeColor(RED);
+            setForeColor(COMMENT_COLOR);
 #endif
 #ifdef COLORS
-            printf("\e[31m"); // set foreground color to red
+            printf("\e[3%dm", COMMENT_COLOR); // set foreground color
 #endif
             boldMode();
         }
@@ -137,7 +139,7 @@ void update(const char* atopPos, int hScroll, int tabSize, int atopRow,
 #endif
 #ifdef COLORS
     if (ansiColors)
-        printf("\e[30;47m");    // set colors to black on white
+        printf("\e[3%d;4%dm", WHITE, BLACK);    // set colors to black on white
 #endif
     curDispAttr = 0;
     row = atopRow;

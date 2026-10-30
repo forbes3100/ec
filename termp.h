@@ -102,6 +102,7 @@ inline void gotoxy(int col, int row) { tputs(tgoto(CM, col, row), 1, tputc); }
 // ANSI terminal color codes
 #define WHITE   0
 #define RED     1
+#define MAGENTA 5
 #define BLACK   7
 
 #define NO_KEY      -1      // used by checkKey(), waitKey()
