@@ -24,6 +24,7 @@
 
 #include "termp.h"
 #include "ec.h"
+#include "utf8.h"
 
 #define COLORS      // put out ANSI color-change escape sequences
                     // (use "xterm +cm" or "xterm*colorMode: true")
@@ -32,7 +33,7 @@
 #define COMMENT_COLOR MAGENTA
 
 int  row, col;      // current screen row and column position
-short* ip;          // pointer to current char in screenBuf
+ScreenCell* ip;     // pointer to current cell in screenImage
 bool  cursorGood;   // TRUE if ip matches real screen cursor position
 int curDispAttr;    // current char attributes
 
@@ -47,8 +48,12 @@ void clearScreenC()
         printf("\e[3%d;4%dm", WHITE, BLACK);    // set colors to black on white
 #endif
     clearScreen();
-    for (int i = 0; i < SCRMAXHT*SCRMAXWD; )
-        screenImage[0][i++] = ' ';
+    for (int r = 0; r < SCRMAXHT; r++)
+        for (int c = 0; c < SCRMAXWD; c++)
+        {
+            screenImage[r][c].codePoint = ' ';
+            screenImage[r][c].attributes = 0;
+        }
 }
 
 // ----------------------------------------------------------------------------
@@ -65,16 +70,11 @@ void clearLineC()
 }
 
 // ----------------------------------------------------------------------------
-// Draw character c at screen position ip and advance pointer.
-// if cAttr is non-zero, it's an attributed char which should be drawn
-// instead, but the backing buffer is always updated to c. (why???)
+// Draw one Unicode code point at screen position ip and advance one cell.
 
-void putAttrChar(char c, int cAttr)
+void putAttrChar(uint32_t codePoint, int cellAttributes)
 {
-    if (cAttr == 0)
-        cAttr = c;
-
-    if (cAttr != *ip)
+    if (ip->codePoint != codePoint || ip->attributes != cellAttributes)
     {
         int needAttrOn = attrib;
         int needAttrOff = curDispAttr & ~attrib;
@@ -116,8 +116,13 @@ void putAttrChar(char c, int cAttr)
             underlineMode();
 
         curDispAttr = attrib;
-        putChar(c);
-        *ip = cAttr;
+        char encoded[4];
+        size_t length = utf8Encode(codePoint, encoded);
+        if (!length)
+            length = utf8Encode(0xfffd, encoded);
+        fwrite(encoded, 1, length, stdout);
+        ip->codePoint = codePoint;
+        ip->attributes = (unsigned short)cellAttributes;
     }
     else
         cursorGood = FALSE;
@@ -148,6 +153,7 @@ void update(const char* atopPos, int hScroll, int tabSize, int atopRow,
     bool atEOT = FALSE;
     int comment1Line = FALSE;
     ip = &screenImage[row][0];
+    const char* textEnd = atopPos + strlen(atopPos);
 
     const char* p;
     for (p = atopPos; row <= abotRow; )
@@ -158,20 +164,22 @@ void update(const char* atopPos, int hScroll, int tabSize, int atopRow,
                 cursRow = row;
                 cursCol = col;
             }
-        if ( *p < ' ')
+        size_t charLength = 1;
+        if ((unsigned char)*p < ' ')
         {
             if ((*p == '\n') || *p == 0)        // '\n' or EOF
             {
-                short* nextRow = &screenImage[row+1][0];
+                ScreenCell* nextRow = &screenImage[row+1][0];
                 bool dirty = FALSE;
                 if (!(attrib & AT_REVERSE) && comment1Line)
                     attrib &= ~AT_BOLD;
 
                 while (ip < nextRow)
                 {
-                    if (*ip != ' ')
+                    if (ip->codePoint != ' ' || ip->attributes != 0)
                     {
-                        *ip = ' ';
+                        ip->codePoint = ' ';
+                        ip->attributes = 0;
                         dirty = TRUE;
                     }
                     ip++;
@@ -224,9 +232,13 @@ void update(const char* atopPos, int hScroll, int tabSize, int atopRow,
         }
         else
         {
+            uint32_t codePoint;
+            charLength = utf8Decode(p, textEnd, &codePoint);
+            if (!charLength)
+                charLength = 1;
             if (col >= 0 && col < screenWd-1)       // other text
             {
-                int cAttr = attrib + *p;
+                int cAttr = attrib;
 
                 // turn on bold attribute if a comment
                 if (*p == '/' && *(p+1) == '/')
@@ -240,7 +252,7 @@ void update(const char* atopPos, int hScroll, int tabSize, int atopRow,
                     comment1Line = FALSE;
                 }
 
-                putAttrChar(*p, cAttr);
+                putAttrChar(codePoint, cAttr);
 
                 if (p > atopPos && *(p-1) == '*' && *p == '/')
                     attrib &= ~AT_BOLD;
@@ -254,7 +266,7 @@ void update(const char* atopPos, int hScroll, int tabSize, int atopRow,
             }
         }
         if (*p != 0)
-            p++;
+            p += charLength;
         else
             atEOT = TRUE;
     }
@@ -376,10 +388,10 @@ void cursToLineChar()
             i++;
         }
     lineNum = i;
-    for (p = bcursPos-1; p > bstart; p--)
-        if (*p == '\n')
-            break;
-    charNum = (int)(bcursPos - p);
+    p = bcursPos;
+    while (p > bstart && *(p - 1) != '\n')
+        p--;
+    charNum = (int)utf8Count(p, bcursPos) + 1;
 }
 
 // ----------------------------------------------------------------------------
@@ -390,7 +402,7 @@ const char* find(const char* str, int len)
     bool caseSens = FALSE;
     const char* p;
     for (p = str; *p; p++)
-        if (isupper(*p))
+        if (isupper((unsigned char)*p))
         {
             caseSens = TRUE;
             break;
@@ -407,16 +419,16 @@ const char* find(const char* str, int len)
             for (p = bcursPos; p < last; )
             {
                 char c = *p++;
-                if (!caseSens && isupper(c))
-                    c = tolower(c);
+                if (!caseSens && isupper((unsigned char)c))
+                    c = (char)tolower((unsigned char)c);
                 if (c == ch0)
                 {
                     const char* p2 = p;
                     for (i = 1; i <= len;)
                     {
                         c = *p2++;
-                        if (!caseSens && isupper(c))
-                            c = tolower(c);
+                        if (!caseSens && isupper((unsigned char)c))
+                            c = (char)tolower((unsigned char)c);
                         if (str[i++] != c)
                             break;
                     }
@@ -432,16 +444,16 @@ const char* find(const char* str, int len)
             for (p = bcursPos; p > last; )
             {
                 char c = *(p--);
-                if (!caseSens && isupper(c))
-                    c = tolower(c);
+                if (!caseSens && isupper((unsigned char)c))
+                    c = (char)tolower((unsigned char)c);
                 if (c == ch0)
                 {
                     const char* p2 = p+1;
                     for (i = 1; i <= len;)
                     {
                         c = *p2++;
-                        if (!caseSens && isupper(c))
-                            c = tolower(c);
+                        if (!caseSens && isupper((unsigned char)c))
+                            c = (char)tolower((unsigned char)c);
                         if (str[i++] != c)
                             break;
                     }
@@ -547,25 +559,35 @@ void del(char* p, int n)
 }
 
 // ----------------------------------------------------------------------------
-// Replace one character in buffer b at p with char c.
+// Replace one UTF-8 character in buffer b at p with code point c.
 
 void replace(char* p, int c)
 {
     char repString[4];
+    size_t repLength = utf8Encode((uint32_t)c, repString);
 
     if (buffer[b].readOnly)
         throw new Error("read-only file");
+    if (!repLength)
+        return;
 
-    if (bcursPos < beot)
+    if (p < beot)
     {
-        *bcursPos = c;
-        buffer[b].changed = TRUE;
+        char* next = (char*)utf8Next(p, beot);
+        int oldLength = (int)(next - p);
+        if (oldLength == (int)repLength)
+        {
+            movec(repString, p, (int)repLength);
+            buffer[b].changed = TRUE;
+        }
+        else
+        {
+            del(p, oldLength);
+            insert(p, repString, (int)repLength);
+        }
     }
     else
-    {
-        repString[0] = c;
-        insert(bcursPos, repString, 1);
-    }
+        insert(p, repString, (int)repLength);
 }
 
 // ----------------------------------------------------------------------------
@@ -802,10 +824,8 @@ void beginLine(char** p)
 
 void backChar(char** p, int n)
 {
-    if (*p - n > bstart)
-        *p -= n;
-    else
-        *p = bstart;
+    while (n-- > 0 && *p > bstart)
+        *p = (char*)utf8Prev(bstart, *p);
 }
 
 // ----------------------------------------------------------------------------
@@ -813,10 +833,8 @@ void backChar(char** p, int n)
 
 void fwdChar(char** p, int n)
 {
-    if (*p + n < beot)
-        *p += n;
-    else
-        *p = beot;
+    while (n-- > 0 && *p < beot)
+        *p = (char*)utf8Next(*p, beot);
 }
 
 // ----------------------------------------------------------------------------
@@ -827,33 +845,33 @@ void backWord(char** p, int n)
     char* rp = *p;
     for ( ; n > 0 && rp > bstart; n--)
     {
+        uint32_t codePoint = 0;
         while (rp > bstart)             // first back up over whitespace
         {
-            rp--;
-            if (*rp > ' ' || *rp == '\n')
+            rp = (char*)utf8Prev(bstart, rp);
+            utf8Decode(rp, beot, &codePoint);
+            if (codePoint > ' ' || codePoint == '\n')
                 break;
         }
-        if (*rp != '\n')                // not end of prev line
+        if (codePoint != '\n')          // not end of prev line
         {
-            if (isalnum(*rp) || *rp == '_') // name: back over it
+            bool word = (codePoint == '_') ||
+                (codePoint < 0x80 && isalnum((unsigned char)codePoint)) ||
+                (codePoint >= 0x0370 && codePoint <= 0x03ff);
+            while (rp > bstart)
             {
-                while (rp > bstart)
-                {
-                    if (!(isalnum(*rp) || *rp == '_'))
-                        break;
-                    rp--;
-                }
+                char* previous = (char*)utf8Prev(bstart, rp);
+                uint32_t previousCodePoint;
+                utf8Decode(previous, beot, &previousCodePoint);
+                bool previousWord = (previousCodePoint == '_') ||
+                    (previousCodePoint < 0x80 &&
+                     isalnum((unsigned char)previousCodePoint)) ||
+                    (previousCodePoint >= 0x0370 &&
+                     previousCodePoint <= 0x03ff);
+                if (previousCodePoint <= ' ' || previousWord != word)
+                    break;
+                rp = previous;
             }
-            else                            // or symbol: back over it
-            {
-                while (rp > bstart)
-                {
-                    if ((isalnum(*rp) || *rp == '_') || *rp <= ' ')
-                        break;
-                    rp--;
-                }
-            }
-            rp++;                       // sit on first char of it
         }
     }
     *p = rp;
@@ -867,33 +885,40 @@ void fwdWord(char** p, int n)
     char* rp = *p;
     for ( ; n > 0 && rp < beot; n--)
     {
-        if (*rp == '\n')
-            rp++;
-        if (isalnum(*rp) || *rp == '_')
+        uint32_t codePoint;
+        utf8Decode(rp, beot, &codePoint);
+        if (codePoint == '\n')
         {
-            rp++;
-            while (rp < beot)       // skip over rest of word
-            {
-                if (!(isalnum(*rp) || *rp == '_'))
-                    break;
-                rp++;
-            }
+            rp = (char*)utf8Next(rp, beot);
+            if (rp >= beot)
+                break;
+            utf8Decode(rp, beot, &codePoint);
         }
-        else if (*rp > ' ')
+        if (codePoint > ' ')
         {
-            rp++;                   // advance at least one character
-            while (rp < beot)       // skip over rest of symbols
+            bool word = (codePoint == '_') ||
+                (codePoint < 0x80 && isalnum((unsigned char)codePoint)) ||
+                (codePoint >= 0x0370 && codePoint <= 0x03ff);
+            do
             {
-                if (isalnum(*rp) || *rp <= ' ')
+                rp = (char*)utf8Next(rp, beot);
+                if (rp >= beot)
                     break;
-                rp++;
-            }
+                utf8Decode(rp, beot, &codePoint);
+                bool nextWord = (codePoint == '_') ||
+                    (codePoint < 0x80 &&
+                     isalnum((unsigned char)codePoint)) ||
+                    (codePoint >= 0x0370 && codePoint <= 0x03ff);
+                if (codePoint <= ' ' || nextWord != word)
+                    break;
+            } while (true);
         }
         while (rp < beot)           // find next word
         {
-            if (*rp > ' ' || *rp == '\n')
+            utf8Decode(rp, beot, &codePoint);
+            if (codePoint > ' ' || codePoint == '\n')
                 break;
-            rp++;
+            rp = (char*)utf8Next(rp, beot);
         }
     }
     *p = rp;
@@ -941,18 +966,30 @@ void upLine(char** p, int n)
     int col = 0;
     char* rp2 = *p;
     while (rp2 < rp)
-        if (*rp2++ == '\t')
+        if (*rp2 == '\t')
+        {
+            rp2++;
             col += btabSize - ((col + btabSize) % btabSize);
+        }
         else
+        {
+            rp2 = (char*)utf8Next(rp2, rp);
             col++;
+        }
     backLine(p, n);
     rp = *p;
     int i = 0;
     while (rp < beot && i < col && *rp != '\n')
-        if (*rp++ == '\t')
+        if (*rp == '\t')
+        {
+            rp++;
             i += btabSize - ((i + btabSize) % btabSize);
+        }
         else
+        {
+            rp = (char*)utf8Next(rp, beot);
             i++;
+        }
     *p = rp;
 }
 
@@ -966,17 +1003,29 @@ void downLine(char** p, int n)
     int col = 0;
     char* rp2 = *p;
     while (rp2 < rp)
-        if (*rp2++ == '\t')
+        if (*rp2 == '\t')
+        {
+            rp2++;
             col += btabSize - ((col + btabSize) % btabSize);
+        }
         else
+        {
+            rp2 = (char*)utf8Next(rp2, rp);
             col++;
+        }
     fwdLine(p, n);
     rp = *p;
     int i = 0;
     while (rp < beot && i < col && *rp != '\n')
-        if (*rp++ == '\t')
+        if (*rp == '\t')
+        {
+            rp++;
             i += btabSize - ((i + btabSize) % btabSize);
+        }
         else
+        {
+            rp = (char*)utf8Next(rp, beot);
             i++;
+        }
     *p = rp;
 }

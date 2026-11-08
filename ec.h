@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 
 // standard types and constants
 
@@ -110,15 +111,21 @@ enum CheckMode { NOCHECKKEY=0, CHECKKEY };  // for update 'check' argument
 // file line ending types
 enum LEnd {lEnd_Unix, lEnd_Mac, lEnd_PC};
 
-// character attribute codes in screenImage[]
+// Character attributes stored with each screen cell.
 
 #define AT_BOLD         0x0100
 #define AT_REVERSE      0x0200
 #define AT_UNDERLINE    0x0400
 #define AT_ALL          0xff00
 
+struct ScreenCell
+{
+    uint32_t codePoint;
+    unsigned short attributes;
+};
+
 extern BuffRec  buffer[];
-extern short screenImage[SCRMAXHT][SCRMAXWD]; // internal image of screen
+extern ScreenCell screenImage[SCRMAXHT][SCRMAXWD]; // internal screen image
 extern char statusLine[];                   // status line string
 extern char divideLine[];                   // split window dividing line string
 extern char insString[];                    // insert string temp storage

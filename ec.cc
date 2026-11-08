@@ -26,6 +26,7 @@
 
 #include "termp.h"
 #include "ec.h"
+#include "utf8.h"
 
 #define NO_UPDATE_DURING_INPUT
 
@@ -65,7 +66,7 @@ void getCommand (const char* msg, bool isFile = false);
 
 termOptStr  termSave;                   // saved terminal characteristics
 BuffRec buffer[12];                     // 12 edit buffers
-short   screenImage[SCRMAXHT][SCRMAXWD]; // internal image of screen
+ScreenCell screenImage[SCRMAXHT][SCRMAXWD]; // internal image of screen
 char    statusLine[SCRMAXWD];           // status line string
 char    divideLine[SCRMAXWD];           // split window dividing line string
 char    insString[MAX_LINE];            // insert string temp storage
@@ -246,9 +247,12 @@ void adjustTopRow()
             putchar(CH_LF);
             clearLineC();
             movec((char*)&screenImage[1][0], (char* )&screenImage[0][0],
-                (long )(SCRMAXWD*(screenHt-1)) * sizeof(short));
+                (long )(SCRMAXWD*(screenHt-1)) * sizeof(ScreenCell));
             for (int i = 0; i < screenWd-1; i++)
-                screenImage[screenHt-1][i] = ' ';
+            {
+                screenImage[screenHt-1][i].codePoint = ' ';
+                screenImage[screenHt-1][i].attributes = 0;
+            }
         }
     }
     lastTopPos = btopRowPos;
@@ -423,7 +427,8 @@ void saveIfOpen()
             attrib = 0;
             gotoxy(strlen(cmdLine)-2, screenHt-1);
             waitKey(&key);                  // wait for key
-            key = toupper(key);
+            if (key < 0x80)
+                key = toupper(key);
         } while (!(key == 'Y' || key == 'N' || key == 'C'));
 
         if (key == 'C')
@@ -557,7 +562,8 @@ void findReplace(const char* findStr, int findStrLen, const char* replStr, int r
                         attrib = 0;
                         gotoxy(cursCol, cursRow);
                         waitKey(&key);
-                        key = toupper(key);
+                        if (key < 0x80)
+                            key = toupper(key);
                         if (key == 'C')
                             break;
                         if (key != 'Y')
@@ -733,7 +739,7 @@ void doQcommand(int ch)
                     break;
 
                 default:    // otherwise, it may be a delimiter
-                    if (!isalpha(ch))
+                    if (!isalpha((unsigned char)ch))
                     {
                         delimChar = ch;
                         theStrLen = 0;
@@ -991,7 +997,10 @@ void doCommand(int ch)
 
             case 'G':           // delete char at cursor
                 if (insertMode)
-                    del(bcursPos, 1);
+                {
+                    char* next = (char*)utf8Next(bcursPos, beot);
+                    del(bcursPos, (int)(next - bcursPos));
+                }
                 else
                     replace(bcursPos, ' ');
                 break;
@@ -1000,7 +1009,10 @@ void doCommand(int ch)
             case 'H':
                 backChar(&bcursPos, 1);
                 if (insertMode)
-                    del(bcursPos, 1);
+                {
+                    char* next = (char*)utf8Next(bcursPos, beot);
+                    del(bcursPos, (int)(next - bcursPos));
+                }
                 else
                     replace(bcursPos, ' ');
                 break;
@@ -1028,7 +1040,7 @@ void doCommand(int ch)
                 {
                     if (*p++ == 'Q' && (*p == 'F' || *p == 'A'))
                     {
-                        for (p++; isalpha(*p); p++)
+                        for (p++; isalpha((unsigned char)*p); p++)
                             if (*p == 'G' || *p == 'g')
                                 *p = 'L'; // change GLOBAL to LOCAL option
                     }
@@ -1313,9 +1325,12 @@ void getCommand(const char* msg, bool isFile)
             doCommand(key);
         else
         {
-            insString[0] = (char)key;
-            insert(bcursPos, insString, 1);
-            bcursPos++;
+            size_t length = utf8Encode((uint32_t)key, insString);
+            if (length)
+            {
+                insert(bcursPos, insString, (int)length);
+                bcursPos += length;
+            }
         }
         key = NO_KEY;
     } while (TRUE);
@@ -1681,20 +1696,23 @@ int main(int argc, const char** argv)
                     }
                     else
                     {
-                        insString[0] = (char)key;
-                        insert(bcursPos, insString, 1);
+                        size_t length = utf8Encode((uint32_t)key, insString);
+                        if (length)
+                            insert(bcursPos, insString, (int)length);
                     }
                 }
                 else
                     replace(bcursPos, key);
     
-                if (cursCol < screenWd-1 && key >= ' ')
+                if (cursCol < screenWd-1 && key >= ' ' && key < 0x80)
                 {                   // do quick update of screen first
                     putchar(key);
-                    screenImage[cursRow][cursCol] = key;
+                    screenImage[cursRow][cursCol].codePoint = key;
+                    screenImage[cursRow][cursCol].attributes = attrib;
                     cursCol++;
                 }
-                bcursPos++;
+                char encoded[4];
+                bcursPos += utf8Encode((uint32_t)key, encoded);
             }
 #ifdef NO_UPDATE_DURING_INPUT   // FIX: this breaks Find command
             if (quitting)

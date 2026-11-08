@@ -4,21 +4,27 @@
 
 all: ec
 
+check: utf8test
+	./utf8test
+
 UNAME = uname -s
 OS = $(UNAME:sh)$(shell $(UNAME))
 CFLAGS_EXTRA = -D$(OS)
 
-SRC = ec.cc ecbuf.cc termx.cc keyx.cc
+SRC = ec.cc ecbuf.cc termx.cc keyx.cc utf8.cc
 OBJ = $(SRC:.cc=.o)
 
-ec: ec.o ecbuf.o termx.o keyx.o
+ec: $(OBJ)
 	$(CXX) $(OBJ) -lcurses -o $@
 
 #	$(CXX) $(OBJ) -ltermcap -o $@
 #	$(CXX) $(OBJ) -ltermcap -lstdc++ -o $@
 
 clean:
-	rm -f *.o .del-depend
+	rm -f *.o .del-depend utf8test
+
+utf8test: utf8test.o utf8.o
+	$(CXX) utf8test.o utf8.o -o $@
 
 distclean: clean
 	rm -f ec .del-* *.E *.asm *.dis .gdb_history

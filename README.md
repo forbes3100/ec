@@ -34,6 +34,14 @@ And read in the ec.cc file by typing a ^KR (control-K, R), entering "ec.cc", and
 
 Type a ^KH at any time for a help screen (shown below), and any key to get back.
 
+### Character support
+
+`ec` reads and writes UTF-8 and supports single-column characters such as
+Greek letters and the em dash. Cursor movement, deletion, replacement, and
+literal search preserve complete UTF-8 characters. Combining characters,
+double-width characters, emoji, and right-to-left text are not supported.
+Case-insensitive search remains ASCII-only.
+
 Use the WordStar diamond keys (^E, ^S, ^D, ^X) to move the cursor by a character in the corresponding direction, and the keys next to them (^R, ^A, ^F, ^C) to move faster: back/forward a word or up/down a half-screen. A ^Q prefix moves all the way in that direction (^QR, ^QS, ^QD, ^QC).
 
 There are 10 separate buffers, each of which may have a file open or be used as scratch. A ^QW toggles a split view showing two buffers, during which a ^N toggles which window is being edited, and a ^B0 through ^B9 selects the buffer to edit.

@@ -15,10 +15,81 @@
 // ****************************************************************************
 
 #include <unistd.h>
+#include <errno.h>
 
 #include "termp.h"
+#include "utf8.h"
 
 char            keyInited;
+
+static char inputBytes[4];
+static size_t inputLength;
+static size_t inputExpected;
+
+// Add one terminal byte to the current UTF-8 sequence.  Return true only
+// when a complete key is available.  Invalid input becomes U+FFFD.
+static bool acceptInputByte(unsigned char byte, int* key)
+{
+    if (inputLength == 0)
+    {
+        if (byte < 0x80)
+        {
+            *key = byte;
+            return true;
+        }
+        if (byte >= 0xc2 && byte <= 0xdf)
+            inputExpected = 2;
+        else if (byte >= 0xe0 && byte <= 0xef)
+            inputExpected = 3;
+        else if (byte >= 0xf0 && byte <= 0xf4)
+            inputExpected = 4;
+        else
+        {
+            *key = 0xfffd;
+            return true;
+        }
+        inputBytes[inputLength++] = (char)byte;
+        return false;
+    }
+
+    if ((byte & 0xc0) != 0x80)
+    {
+        inputLength = 0;
+        inputExpected = 0;
+        *key = 0xfffd;
+        return true;
+    }
+
+    inputBytes[inputLength++] = (char)byte;
+    if (inputLength < inputExpected)
+        return false;
+
+    uint32_t codePoint;
+    size_t length = utf8Decode(inputBytes, inputBytes + inputLength,
+                               &codePoint);
+    inputLength = 0;
+    inputExpected = 0;
+    *key = length > 1 ? (int)codePoint : 0xfffd;
+    return true;
+}
+
+static void readKey(int* key, bool blocking)
+{
+    unsigned char byte;
+    while (*key == NO_KEY)
+    {
+        ssize_t count = read(STDIN_FILENO, &byte, 1);
+        if (count == 1)
+        {
+            if (acceptInputByte(byte, key))
+                return;
+        }
+        else if (count < 0 && errno == EINTR)
+            continue;
+        else if (!blocking)
+            return;
+    }
+}
 
 // ----------------------------------------------------------------------------
 // Initialize terminal-dependent variables, based on TERM setting.
@@ -71,8 +142,8 @@ void restoreTerm(termOptStr* termSave)
 
 void checkKey(int* key)
 {
-    if (*key <= 0 && keyInited)
-        *key = getchar();
+    if (*key == NO_KEY && keyInited)
+        readKey(key, false);
 }
 
 // ----------------------------------------------------------------------------
@@ -97,8 +168,7 @@ void waitKey(int* key)
     int flags = fcntl(0, F_GETFL, 0);
     fcntl(0, F_SETFL, flags & ~O_NDELAY);  // set stdin for delay
 
-    while (*key <= 0)
-        *key = getchar();
+    readKey(key, true);
     keyInited = TRUE;
 
 #ifdef TERMIOS
