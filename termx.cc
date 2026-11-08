@@ -159,7 +159,10 @@ void iTermCaps(termOptStr* termSave)
     ioctl(0, MY_TCGETA, &n_termio);     // get a copy of terminal options
 #endif
 
-    n_termio.c_iflag = ISTRIP;          // no parity, etc.
+    // Do not use ISTRIP here: clearing the high bit corrupts UTF-8 input.
+    // Leaving the input flags clear also keeps ^Q/^S available to ec rather
+    // than letting the terminal consume them as software flow control.
+    n_termio.c_iflag = 0;
     n_termio.c_oflag = 0;               // no output postprocessing
     n_termio.c_lflag = 0;               // non-cannonical input
     n_termio.c_cc[VMIN] = 1;            // getc: chars to read

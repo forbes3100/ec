@@ -141,7 +141,8 @@ extern char* lastTopPos;                    // previous top char position
 extern int  ansiColors;                     // TRUE to force ANSI black on white
 
 extern char command, cmdChar2;
-extern signed char key;
+// int preserves getchar()'s full unsigned-byte range as well as NO_KEY.
+extern int key;
 extern int  cmdState;                       // doCommand() state
 extern int  lineNum, charNum;               // cursor loc in line, char
 extern int  cursRow, cursCol;               // cursor loc on screen

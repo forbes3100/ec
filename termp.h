@@ -119,8 +119,8 @@ extern int screenHt, screenWd;      // screen dimensions
 void iTermCaps (termOptStr* termSave);  // initialize full terminal emulation
 void initTerm (termOptStr* termSave);   // initialize for checkKey
 void restoreTerm (termOptStr* termSave); // conclude terminal emulation
-void checkKey (signed char* key);               // check key pressed: defd in key.c
-void waitKey (signed char* key);                // wait for key: defined in key.c
+void checkKey (int* key);               // check key pressed: defined in keyx.cc
+void waitKey (int* key);                // wait for key: defined in keyx.cc
 void getScreenSize();
 
 #endif // termp_h_

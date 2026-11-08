@@ -34,11 +34,11 @@ static const char* Intro =
 
 // character codes
 
-const signed char CH_CR =       0x0d;   // ASCII carriage return char
-const signed char CH_LF =       0x0a;   // ASCII line feed char
-const signed char CH_BELL =     0x07;   // ASCII bell char
-const signed char CH_ESC =      0x1b;   // ASCII escape char
-const signed char CH_RUB =      0x7f;   // ASCII rubout char
+const int CH_CR =       0x0d;   // ASCII carriage return char
+const int CH_LF =       0x0a;   // ASCII line feed char
+const int CH_BELL =     0x07;   // ASCII bell char
+const int CH_ESC =      0x1b;   // ASCII escape char
+const int CH_RUB =      0x7f;   // ASCII rubout char
 
 class Cancel
 {
@@ -88,7 +88,9 @@ char*   lastTopPos;                     // previous top char position
 int     ansiColors;                     // TRUE to force ANSI black on white
 
 char    command, cmdChar2;
-signed char key;
+// getchar() returns either NO_KEY or an unsigned byte promoted to int.  A
+// signed char would turn UTF-8 bytes into negative command/control values.
+int     key;
 int     cmdState;                       // doCommand() state
 int     lineNum, charNum;               // cursor loc in line, char
 int     cursRow, cursCol;               // cursor loc on screen
@@ -1311,7 +1313,7 @@ void getCommand(const char* msg, bool isFile)
             doCommand(key);
         else
         {
-            insString[0] = key;
+            insString[0] = (char)key;
             insert(bcursPos, insString, 1);
             bcursPos++;
         }
@@ -1679,7 +1681,7 @@ int main(int argc, const char** argv)
                     }
                     else
                     {
-                        insString[0] = key;
+                        insString[0] = (char)key;
                         insert(bcursPos, insString, 1);
                     }
                 }

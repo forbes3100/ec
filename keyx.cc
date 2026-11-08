@@ -34,7 +34,11 @@ void initTerm(termOptStr* termSave)
     ioctl(0, MY_TCGETA, &termSave->o_termio);   // save old terminal options
     ioctl(0, MY_TCGETA, &n_termio);     // get a copy of terminal options
 #endif
-    n_termio.c_iflag = ISTRIP;          // no parity, etc.
+    // UTF-8 uses all eight bits of each input byte.  ISTRIP would clear the
+    // high bit and corrupt every non-ASCII character before the editor sees
+    // it.  Keep input otherwise raw as before, including disabling software
+    // flow control so ^Q and ^S remain editor commands.
+    n_termio.c_iflag = 0;
     n_termio.c_oflag = 0;               // no output postprocessing
     n_termio.c_lflag = 0;               // non-cannonical input
     n_termio.c_cc[VMIN] = 1;            // getc: chars to read
@@ -65,7 +69,7 @@ void restoreTerm(termOptStr* termSave)
 // ----------------------------------------------------------------------------
 // Check if a key is pressed, and get it if so.
 
-void checkKey(signed char* key)
+void checkKey(int* key)
 {
     if (*key <= 0 && keyInited)
         *key = getchar();
@@ -74,7 +78,7 @@ void checkKey(signed char* key)
 // ----------------------------------------------------------------------------
 // Wait for a key to be pressed if not already gotten.
 
-void waitKey(signed char* key)
+void waitKey(int* key)
 {
     TERMIO  o_termio;
 #ifdef TERMIOS
