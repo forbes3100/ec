@@ -120,7 +120,8 @@ void putAttrChar(uint32_t codePoint, int cellAttributes)
         size_t length = utf8Encode(codePoint, encoded);
         if (!length)
             length = utf8Encode(0xfffd, encoded);
-        fwrite(encoded, 1, length, stdout);
+        for (size_t i = 0; i < length; i++)
+            putChar((unsigned char)encoded[i]);
         ip->codePoint = codePoint;
         ip->attributes = (unsigned short)cellAttributes;
     }
@@ -279,6 +280,7 @@ void update(const char* atopPos, int hScroll, int tabSize, int atopRow,
     if (ansiColors)
         printf("\e[0m"); // reset colors
 #endif
+    fflush(stdout);
 }
 
 // ----------------------------------------------------------------------------
