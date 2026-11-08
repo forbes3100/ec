@@ -359,6 +359,11 @@ void updateWindows()
     attrib = AT_REVERSE + AT_BOLD;
     update(statusLine, 0, 0, 0, 0);
     attrib = 0;
+    // update() leaves the hardware cursor wherever the last changed status
+    // character was drawn.  Put it back at the editing position after every
+    // screen update, even when only the status line changed.
+    gotoxy(cursCol, cursRow);
+    fflush(stdout);
 }
 
 // ----------------------------------------------------------------------------

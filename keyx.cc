@@ -16,6 +16,8 @@
 
 #include <unistd.h>
 #include <errno.h>
+#include <poll.h>
+#include <stdio.h>
 
 #include "termp.h"
 #include "utf8.h"
@@ -78,6 +80,15 @@ static void readKey(int* key, bool blocking)
     unsigned char byte;
     while (*key == NO_KEY)
     {
+        if (!blocking)
+        {
+            struct pollfd input;
+            input.fd = STDIN_FILENO;
+            input.events = POLLIN;
+            input.revents = 0;
+            if (poll(&input, 1, 0) <= 0 || !(input.revents & POLLIN))
+                return;
+        }
         ssize_t count = read(STDIN_FILENO, &byte, 1);
         if (count == 1)
         {
@@ -120,7 +131,6 @@ void initTerm(termOptStr* termSave)
     ioctl(0, MY_TCSETAF, &n_termio);        // set new term options
 #endif
     termSave->flags = fcntl(0, F_GETFL, 0);
-    fcntl(0, F_SETFL, termSave->flags | O_NDELAY); // set stdin for no delay
     keyInited = FALSE;                  // (returns -1 if no key)
 }
 
@@ -151,6 +161,10 @@ void checkKey(int* key)
 
 void waitKey(int* key)
 {
+    // Cursor-motion and terminal-control sequences use stdio.  Make sure the
+    // user sees the completed frame and hardware cursor before input blocks.
+    fflush(stdout);
+
     TERMIO  o_termio;
 #ifdef TERMIOS
     tcgetattr(0, &o_termio);            // save current terminal options

@@ -173,7 +173,6 @@ void iTermCaps(termOptStr* termSave)
     ioctl(0, MY_TCSETAF, &n_termio);    // set new term options
 #endif
     termSave->flags = fcntl(0, F_GETFL, 0);
-    fcntl(0, F_SETFL, termSave->flags | O_NDELAY); // set stdin for no delay
     keyInited = FALSE;                  // (returns -1 if no key)
 }
 
